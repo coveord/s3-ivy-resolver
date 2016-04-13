@@ -18,4 +18,8 @@ class Strings {
       return str;
     }
   }
+
+  static String toEnvironmentVariableName(String s) {
+    return s.toUpperCase().replace('-', '_').replace('.', '_').replaceAll("[^A-Z0-9_]", "");
+  }
 }

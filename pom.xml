@@ -11,11 +11,20 @@
   <version>0.1</version>
   <name>S3 Resolver for Ivy</name>
 
+  <properties>
+    <aws.version>1.10.69</aws.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-s3</artifactId>
-      <version>1.10.69</version>
+      <version>${aws.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-sts</artifactId>
+      <version>${aws.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.ivy</groupId>
