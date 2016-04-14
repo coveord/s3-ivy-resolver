@@ -42,7 +42,11 @@ In order to authenticate, you will need to put your credentials in one of the fo
     accessKey=<my-access-key>
     secretKey=<my-secret-key>
 
-environment:
+environment variables:
 
     AWS_ACCESS_KEY_ID=<my-access-key>
     AWS_SECRET_KEY=<my-secret-key>
+
+## License
+
+[Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
