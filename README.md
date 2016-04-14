@@ -4,9 +4,8 @@ An Ivy resolver for fetching artifacts from S3.
 Based heavily on [this library](https://github.com/frugalmechanic/fm-sbt-s3-resolver), but is pure java and built for Ivy.
 This was initially built for usage with Pants, but can be used on its own as well.
 
-## Version
-
-Latest version: [maven central](https://search.maven.org/#search%7Cga%7C1%7Cs3-ivy-resolver)
+[![Build Status](https://travis-ci.org/ActionIQ/s3-ivy-resolver.svg?branch=master)](https://travis-ci.org/ActionIQ/s3-ivy-resolver)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/co.actioniq/s3-ivy-resolver/badge.svg)](https://maven-badges.herokuapp.com/maven-central/co.actioniq/s3-ivy-resolver)
 
 ## Usage
 
