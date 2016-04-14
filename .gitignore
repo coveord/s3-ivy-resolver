@@ -3,3 +3,4 @@ target
 /.idea
 /pom.xml.releaseBackup
 /release.properties
+/mvnw.cmd
