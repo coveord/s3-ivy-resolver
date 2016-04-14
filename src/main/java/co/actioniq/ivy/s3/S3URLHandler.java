@@ -1,6 +1,20 @@
+/*
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
 package co.actioniq.ivy.s3;
 
 import com.amazonaws.AmazonClientException;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSCredentialsProviderChain;
@@ -24,6 +38,8 @@ import org.apache.ivy.util.CopyProgressEvent;
 import org.apache.ivy.util.CopyProgressListener;
 import org.apache.ivy.util.Message;
 import org.apache.ivy.util.url.URLHandler;
+import org.apache.ivy.util.url.URLHandlerDispatcher;
+import org.apache.ivy.util.url.URLHandlerRegistry;
 
 import java.io.File;
 import java.io.InputStream;
@@ -33,26 +49,67 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class S3URLHandler implements URLHandler {
+  // One time setup to register our handler for S3:// urls in Ivy
+  private static final boolean _init = initHandlers();
+
   // This is for matching region names in URLs or host names
   private static final Pattern RegionMatcher = makeRegionMatcher();
 
-  private static final Comparator<String> ReverseLengthComparator = Comparator.comparingInt(String::length).reversed();
-
   private static Pattern makeRegionMatcher() {
+    Comparator<String> ReverseLengthComparator = Comparator.comparingInt(String::length).reversed();
     String pattern = Arrays.stream(Regions.values())
         .map(Regions::getName)
         .sorted(ReverseLengthComparator)
         .collect(Collectors.joining("|", "(", ")"));
     return Pattern.compile(pattern);
+  }
+
+  private static boolean initHandlers() {
+    initDispatcher();
+    initStreamHandler();
+    return true;
+  }
+
+  private static void initDispatcher() {
+    URLHandler defaultHandler = URLHandlerRegistry.getDefault();
+    URLHandlerDispatcher dispatcher;
+    if (defaultHandler instanceof URLHandlerDispatcher) {
+      info("Using the existing Ivy URLHandlerDispatcher to handle s3:// URLs");
+      dispatcher = (URLHandlerDispatcher)defaultHandler;
+    } else {
+      info("Creating a new Ivy URLHandlerDispatcher to handle s3:// URLs");
+      dispatcher = new URLHandlerDispatcher();
+      dispatcher.setDefault(defaultHandler);
+      URLHandlerRegistry.setDefault(dispatcher);
+    }
+    dispatcher.setDownloader("s3", new S3URLHandler());
+  }
+
+  private static void initStreamHandler() {
+    // We need s3:// URLs to work without throwing a java.net.MalformedURLException
+    // which means installing a dummy URLStreamHandler.  We only install the handler
+    // if it's not already installed (since a second call to URL.setURLStreamHandlerFactory
+    // will fail).
+    try {
+      new URL("s3://example.com");
+      info("The s3:// URLStreamHandler is already installed");
+    } catch (MalformedURLException e) {
+      // This means we haven't installed the handler, so install it
+        info("Installing the s3:// URLStreamHandler via java.net.URL.setURLStreamHandlerFactory");
+        URL.setURLStreamHandlerFactory(new S3URLStreamHandlerFactory());
+    }
   }
 
   public boolean isReachable(URL url) {
@@ -83,12 +140,16 @@ class S3URLHandler implements URLHandler {
     return getURLInfo(url, 0);
   }
 
-  private void debug(String msg) {
+  private static void info(String msg) {
+    Message.info(msg);
+  }
+
+  private static void debug(String msg) {
     Message.debug("S3URLHandler." + msg);
   }
 
   private PropertiesFileCredentialsProvider makePropertiesFileCredentialsProvider(String fileName) {
-    File file = new File(Constants.DotSbtDir, fileName);
+    File file = new File(Constants.DotIvyDir, fileName);
     return new PropertiesFileCredentialsProvider(file.toString());
   }
 
@@ -116,14 +177,23 @@ class S3URLHandler implements URLHandler {
         new RoleBasedPropertiesFileCredentialsProvider(basicProviderChain, ".s3credentials")
     };
 
-    List<AWSCredentialsProvider> providerList = Arrays.asList(basicProviders);
+    List<AWSCredentialsProvider> providerList = new ArrayList<>();
     providerList.addAll(Arrays.asList(roleProviders));
+    providerList.addAll(Arrays.asList(basicProviders));
     AWSCredentialsProvider[] providerArray = providerList.toArray(new AWSCredentialsProvider[providerList.size()]);
 
     return new AWSCredentialsProviderChain(providerArray);
   }
 
+  private Map<String,AWSCredentials> credentialsCache = new ConcurrentHashMap<>();
+
   private AWSCredentials getCredentials(String bucket) {
+    AWSCredentials credentials = credentialsCache.computeIfAbsent(bucket, this::computeCredentials);
+    Message.info("S3URLHandler - Using AWS Access Key Id: "+credentials.getAWSAccessKeyId()+" for bucket: "+bucket);
+    return credentials;
+  }
+
+  private AWSCredentials computeCredentials(String bucket) {
     try {
       return makeCredentialsProviderChain(bucket).getCredentials();
     } catch (AmazonClientException e) {
@@ -132,14 +202,25 @@ class S3URLHandler implements URLHandler {
     }
   }
 
+  private ClientConfiguration getProxyConfiguration() {
+    ClientConfiguration configuration = new ClientConfiguration();
+    Optional<String> host = Optional.ofNullable(System.getProperty("https.proxyHost"));
+    Optional<Integer> port = Optional.ofNullable(System.getProperty("https.proxyPort")).map(Integer::parseInt);
+    if (host.isPresent() && port.isPresent()) {
+      configuration.setProxyHost(host.get());
+      configuration.setProxyPort(port.get());
+    }
+    return configuration;
+  }
 
   private ClientBucketKey getClientBucketAndKey(URL url) {
     BucketAndKey bk = getBucketAndKey(url);
-    AmazonS3Client client = new AmazonS3Client(getCredentials(bk.bucket));
+    AmazonS3Client client = new AmazonS3Client(getCredentials(bk.bucket), getProxyConfiguration());
     Optional<Region> region = getRegion(url, bk.bucket, client);
-    region.ifPresent(r -> client.setRegion(r));
+    region.ifPresent(client::setRegion);
     return new ClientBucketKey(client, bk);
   }
+
 
   public URLInfo getURLInfo(URL url, int timeout) {
     try {
@@ -153,14 +234,12 @@ class S3URLHandler implements URLHandler {
       long lastModified = meta.getLastModified().getTime();
 
       return new S3URLInfo(true, contentLength, lastModified);
-    } catch (AmazonS3Exception e1) {
-      if (e1.getStatusCode() == 404) {
+    } catch (AmazonS3Exception e) {
+      if (e.getStatusCode() == 404) {
         return UNAVAILABLE;
       }
-    } catch (Exception e2) {
-      throw e2;
+      throw e;
     }
-    throw new RuntimeException("Shouldn't get here with URL: " + url);
   }
 
   public InputStream openStream(URL url) {
@@ -195,8 +274,7 @@ class S3URLHandler implements URLHandler {
     Stream<String> summaryKeys = listing.getObjectSummaries().stream().map(S3ObjectSummary::getKey);
 
     String urlWithSlash = Strings.stripSuffix(url.toString(), "/") + "/";
-    Stream<URL> res = Stream.concat(keys, summaryKeys)
-        .map((k) -> toURL(urlWithSlash + Strings.stripPrefix(k, prefix)));
+    Stream<URL> res = Stream.concat(keys, summaryKeys).map(k -> toURL(urlWithSlash + Strings.stripPrefix(k, prefix)));
 
     debug("list(" + url + ") => \n  " + res);
 
@@ -211,6 +289,7 @@ class S3URLHandler implements URLHandler {
     }
   }
 
+  @SuppressWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
   public void download(URL src, File dest, CopyProgressListener l) {
     debug("download(" + src + ", " + dest + ")");
 
@@ -256,13 +335,13 @@ class S3URLHandler implements URLHandler {
         () -> getRegionNameFromURL(url),
         () -> getRegionNameFromDNS(bucket),
         () -> getRegionNameFromService(bucket, client));
-    return region.map(RegionUtils::getRegion);
+    return region.flatMap(r -> Optional.ofNullable(RegionUtils.getRegion(r)));
   }
 
   private Optional<String> getRegionNameFromURL(URL url) {
     // We'll try the AmazonS3URI parsing first then fallback to our RegionMatcher
     return Optionals.first(
-        () -> getAmazonS3URI(url).map(AmazonS3URI::getRegion),
+        () -> getAmazonS3URI(url).flatMap(u -> Optional.ofNullable(u.getRegion())),
         () -> findFirstInRegionMatcher(url.toString()));
   }
 
@@ -280,14 +359,18 @@ class S3URLHandler implements URLHandler {
   }
 
   private static Optional<String> findFirstInRegionMatcher(String str) {
-    return Optional.of(RegionMatcher.matcher(str).group(1));
+    try {
+      return Optional.ofNullable(RegionMatcher.matcher(str).group(1));
+    } catch (IllegalStateException e) {
+      return Optional.empty();
+    }
   }
 
   // TODO: cache the result of this so we aren't always making the call
   private Optional<String> getRegionNameFromService(String bucket, AmazonS3Client client) {
     try {
       // This might fail if the current credentials don't have access to the getBucketLocation call
-      return Optional.of(client.getBucketLocation(bucket));
+      return Optional.ofNullable(client.getBucketLocation(bucket));
     } catch (Exception e) {
       return Optional.empty();
     }
