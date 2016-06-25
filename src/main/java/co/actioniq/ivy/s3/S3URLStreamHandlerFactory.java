@@ -13,8 +13,6 @@
  */
 package co.actioniq.ivy.s3;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -27,8 +25,8 @@ class S3URLStreamHandlerFactory implements URLStreamHandlerFactory {
     if ("s3".equals(protocol)) {
       return new URLStreamHandler() {
         @Override
-        protected URLConnection openConnection(URL u) throws IOException {
-          throw new NotImplementedException();
+        protected URLConnection openConnection(URL url) throws IOException {
+          return new S3URLConnection(url);
         }
       };
     }
