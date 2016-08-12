@@ -36,7 +36,7 @@ ivysettings.xml:
 
 In order to authenticate, you will need to put your credentials in one of the following.
 
-~/.ivy2/s3credentials:
+~/.ivy2/credentials:
 
     accessKey=<my-access-key>
     secretKey=<my-secret-key>
