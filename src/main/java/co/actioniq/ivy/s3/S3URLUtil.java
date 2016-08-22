@@ -37,8 +37,15 @@ class S3URLUtil {
   private static final Pattern RegionMatcher = makeRegionMatcher();
 
   private Map<String,AWSCredentials> credentialsCache = new ConcurrentHashMap<>();
+  private final String credentialFileName;
 
-  S3URLUtil() {}
+  S3URLUtil() {
+    this("s3credentials");
+  }
+
+  S3URLUtil(String credentialFileName) {
+    this.credentialFileName = credentialFileName;
+  }
 
   ClientBucketKey getClientBucketAndKey(URL url) {
     BucketAndKey bk = getBucketAndKey(url);
@@ -164,15 +171,15 @@ class S3URLUtil {
     }
   }
 
-  private AWSCredentialsProviderChain makeCredentialsProviderChain(String bucket) {
+  AWSCredentialsProviderChain makeCredentialsProviderChain(String bucket) {
     AWSCredentialsProvider[] basicProviders = {
         new BucketSpecificEnvironmentVariableCredentialsProvider(bucket),
         new BucketSpecificSystemPropertiesCredentialsProvider(bucket),
-        makePropertiesFileCredentialsProvider(".s3credentials_" + bucket),
-        makePropertiesFileCredentialsProvider("." + bucket + "_s3credentials"),
+        makePropertiesFileCredentialsProvider("." + credentialFileName + "_" + bucket),
+        makePropertiesFileCredentialsProvider("." + bucket + "_" + credentialFileName),
         new EnvironmentVariableCredentialsProvider(),
         new SystemPropertiesCredentialsProvider(),
-        makePropertiesFileCredentialsProvider(".s3credentials"),
+        makePropertiesFileCredentialsProvider("." + credentialFileName),
         new InstanceProfileCredentialsProvider()
     };
 
@@ -181,11 +188,11 @@ class S3URLUtil {
     AWSCredentialsProvider[] roleProviders = {
         new BucketSpecificRoleBasedEnvironmentVariableCredentialsProvider(basicProviderChain, bucket),
         new BucketSpecificRoleBasedSystemPropertiesCredentialsProvider(basicProviderChain, bucket),
-        new RoleBasedPropertiesFileCredentialsProvider(basicProviderChain, ".s3credentials_" + bucket),
-        new RoleBasedPropertiesFileCredentialsProvider(basicProviderChain, "." + bucket + "_s3credentials"),
+        new RoleBasedPropertiesFileCredentialsProvider(basicProviderChain, "." + credentialFileName + "_" + bucket),
+        new RoleBasedPropertiesFileCredentialsProvider(basicProviderChain, "." + bucket + "_" + credentialFileName),
         new RoleBasedEnvironmentVariableCredentialsProvider(basicProviderChain),
         new RoleBasedSystemPropertiesCredentialsProvider(basicProviderChain),
-        new RoleBasedPropertiesFileCredentialsProvider(basicProviderChain, ".s3credentials")
+        new RoleBasedPropertiesFileCredentialsProvider(basicProviderChain, "." + credentialFileName)
     };
 
     List<AWSCredentialsProvider> providerList = new ArrayList<>();
