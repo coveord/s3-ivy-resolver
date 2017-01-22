@@ -24,9 +24,6 @@ import org.apache.ivy.util.Message;
 import org.apache.ivy.util.MessageLogger;
 
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
 
 class ClientBucketKey {
   private final AmazonS3Client client;
