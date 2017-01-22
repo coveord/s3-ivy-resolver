@@ -21,7 +21,7 @@
   </parent>
   <groupId>co.actioniq</groupId>
   <artifactId>s3-ivy-resolver</artifactId>
-  <version>0.3-SNAPSHOT</version>
+  <version>0.3</version>
   <name>S3 Resolver for Ivy</name>
 
   <properties>
@@ -41,7 +41,7 @@
     <connection>scm:git:git://github.com/ActionIQ/s3-ivy-resolver.git</connection>
     <developerConnection>scm:git:git@github.com:ActionIQ/s3-ivy-resolver.git</developerConnection>
     <url>https://github.com/ActionIQ/s3-ivy-resolver</url>
-    <tag>HEAD</tag>
+    <tag>s3-ivy-resolver-0.3</tag>
   </scm>
 
   <dependencyManagement>
