@@ -17,7 +17,7 @@ class S3URLConnection extends URLConnection {
   @Override
   public InputStream getInputStream() throws IOException {
     ClientBucketKey clientBucketKey = s3URLUtil.getClientBucketAndKey(url);
-    S3Object object = clientBucketKey.client.getObject(clientBucketKey.bucket(), clientBucketKey.key());
+    S3Object object = clientBucketKey.getObject(clientBucketKey.bucket(), clientBucketKey.key());
     return object.getObjectContent();
   }
 

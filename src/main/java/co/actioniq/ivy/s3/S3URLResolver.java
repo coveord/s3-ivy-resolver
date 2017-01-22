@@ -27,7 +27,7 @@ public class S3URLResolver extends IBiblioResolver {
     setPattern(M2_PATTERN);
   }
 
-  public S3URLResolver(String name, String root, List<String> patterns) {
+  public S3URLResolver(String name, String root, String prefix, List<String> patterns) {
     this();
     setName(name);
     setRoot(root);
