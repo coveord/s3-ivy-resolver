@@ -21,14 +21,12 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3Object;
 import org.apache.ivy.util.Message;
-import org.apache.ivy.util.MessageLogger;
 
 import java.io.File;
 
 class ClientBucketKey {
   private final AmazonS3Client client;
   private final BucketAndKey bucketAndKey;
-  private final MessageLogger logger = Message.getDefaultLogger();
 
   ClientBucketKey(AmazonS3Client client, BucketAndKey bucketAndKey) {
     this.client = client;
@@ -64,7 +62,6 @@ class ClientBucketKey {
   }
 
   private void log(String message) {
-    logger.debug(message);
-//    System.err.println(message);
+    Message.info(message);
   }
 }
