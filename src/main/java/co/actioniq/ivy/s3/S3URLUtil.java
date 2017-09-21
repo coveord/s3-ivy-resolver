@@ -9,6 +9,7 @@ import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.PropertiesFileCredentialsProvider;
 import com.amazonaws.auth.SystemPropertiesCredentialsProvider;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
@@ -180,6 +181,7 @@ class S3URLUtil {
         new EnvironmentVariableCredentialsProvider(),
         new SystemPropertiesCredentialsProvider(),
         makePropertiesFileCredentialsProvider("." + credentialFileName),
+        new ProfileCredentialsProvider(), // #coveo change: check in .aws/credentials or .aws/config
         new InstanceProfileCredentialsProvider()
     };
 
