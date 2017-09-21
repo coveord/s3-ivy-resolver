@@ -113,11 +113,12 @@ class S3URLUtil {
   }
 
   private Optional<AmazonS3URI> getAmazonS3URI(URL url) {
-    try {
-      return getAmazonS3URI(url.toURI());
-    } catch (URISyntaxException e) {
-      return Optional.empty();
-    }
+    // #coveo change: this causes callers to fall back on parsing the URL. For some reason getAmazonS3URI(URI) is broken...
+//    try {
+//      return getAmazonS3URI(url.toURI());
+//    } catch (URISyntaxException e) {
+    return Optional.empty();
+//    }
   }
 
   private BucketAndKey getBucketAndKey(URL url) {
