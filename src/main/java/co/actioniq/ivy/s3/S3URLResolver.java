@@ -15,6 +15,7 @@ package co.actioniq.ivy.s3;
 
 import org.apache.ivy.plugins.resolver.IBiblioResolver;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class S3URLResolver extends IBiblioResolver {
@@ -36,4 +37,14 @@ public class S3URLResolver extends IBiblioResolver {
   }
 
   public String getTypeName() { return "s3"; }
+
+  // #coveo change: need to reset patterns when this is called (see below)
+  public void setRoot(String root) {
+    super.setRoot(root);
+
+    // Setting the root messes with the patterns, they become non-mutable lists.
+    // To be able to modify them again, we'll fix that.
+    setIvyPatterns(new ArrayList());
+    setArtifactPatterns(new ArrayList());
+  }
 }
