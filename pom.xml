@@ -28,8 +28,8 @@
     <basepom.check.skip-license>true</basepom.check.skip-license>
     <basepom.check.skip-findbugs>true</basepom.check.skip-findbugs>
 
-    <aws.version>1.10.69</aws.version>
-    <jackson.version>2.5.3</jackson.version>
+    <aws.version>1.11.202</aws.version>
+    <jackson.version>2.9.1</jackson.version>
     <ivy.version>2.4.0</ivy.version>
 
     <!-- test dependencies -->
