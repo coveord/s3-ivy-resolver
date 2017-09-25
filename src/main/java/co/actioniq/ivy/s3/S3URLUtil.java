@@ -49,8 +49,16 @@ class S3URLUtil {
   }
 
   ClientBucketKey getClientBucketAndKey(URL url) {
+    return getClientBucketAndKey(url, false);
+  }
+
+  ClientBucketKey getNewClientBucketAndKey(URL url) {
+    return getClientBucketAndKey(url, true);
+  }
+
+  private ClientBucketKey getClientBucketAndKey(URL url, boolean renew) {
     BucketAndKey bk = getBucketAndKey(url);
-    AmazonS3Client client = new AmazonS3Client(getCredentials(bk.bucket), getProxyConfiguration());
+    AmazonS3Client client = new AmazonS3Client(getCredentials(bk.bucket, renew), getProxyConfiguration());
     Optional<Region> region = getRegion(url, bk.bucket, client);
     region.ifPresent(client::setRegion);
     return new ClientBucketKey(client, bk);
@@ -147,8 +155,14 @@ class S3URLUtil {
     }
   }
 
-  private AWSCredentials getCredentials(String bucket) {
-    AWSCredentials credentials = credentialsCache.computeIfAbsent(bucket, this::computeCredentials);
+  private AWSCredentials getCredentials(String bucket, boolean renew) {
+    AWSCredentials credentials;
+    if (renew) {
+      credentials = computeCredentials(bucket);
+      credentialsCache.put(bucket, credentials);
+    } else {
+      credentials = credentialsCache.computeIfAbsent(bucket, this::computeCredentials);
+    }
     Message.debug("S3URLHandler - Using AWS Access Key Id: "+credentials.getAWSAccessKeyId()+" for bucket: "+bucket);
     return credentials;
   }

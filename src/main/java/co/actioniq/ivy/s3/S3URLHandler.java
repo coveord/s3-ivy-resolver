@@ -119,7 +119,13 @@ class S3URLHandler implements URLHandler {
 
       ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(url);
 
-      ObjectMetadata meta = cbk.getObjectMetadata(cbk.bucket(), cbk.key());
+      ObjectMetadata meta;
+      try {
+        meta = cbk.getObjectMetadata(cbk.bucket(), cbk.key());
+      } catch (AmazonS3Exception e) {
+        cbk = s3URLUtil.getNewClientBucketAndKey(url);
+        meta = cbk.getObjectMetadata(cbk.bucket(), cbk.key());
+      }
 
       long contentLength = meta.getContentLength();
       long lastModified = meta.getLastModified().getTime();
@@ -137,7 +143,13 @@ class S3URLHandler implements URLHandler {
     debug("openStream(" + url + ")");
 
     ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(url);
-    S3Object obj = cbk.getObject(cbk.bucket(), cbk.key());
+    S3Object obj;
+    try {
+      obj = cbk.getObject(cbk.bucket(), cbk.key());
+    } catch (AmazonS3Exception e) {
+      cbk = s3URLUtil.getNewClientBucketAndKey(url);
+      obj = cbk.getObject(cbk.bucket(), cbk.key());
+    }
     return obj.getObjectContent();
   }
 
@@ -155,7 +167,13 @@ class S3URLHandler implements URLHandler {
 
     ListObjectsRequest request = new ListObjectsRequest().withBucketName(cbk.bucket()).withPrefix(prefix).withDelimiter("/");
 
-    ObjectListing listing = cbk.listObjects(request);
+    ObjectListing listing;
+    try {
+      listing = cbk.listObjects(request);
+    } catch (AmazonS3Exception e) {
+      cbk = s3URLUtil.getNewClientBucketAndKey(url);
+      listing = cbk.listObjects(request);
+    }
 
     if (listing.isTruncated()) {
       throw new RuntimeException("Truncated ObjectListing!  Making additional calls currently isn't implemented!");
@@ -191,7 +209,13 @@ class S3URLHandler implements URLHandler {
       l.start(event);
     }
 
-    ObjectMetadata meta = cbk.getObject(new GetObjectRequest(cbk.bucket(), cbk.key()), dest);
+    ObjectMetadata meta;
+    try {
+      meta = cbk.getObject(new GetObjectRequest(cbk.bucket(), cbk.key()), dest);
+    } catch (AmazonS3Exception e) {
+      cbk = s3URLUtil.getNewClientBucketAndKey(src);
+      meta = cbk.getObject(new GetObjectRequest(cbk.bucket(), cbk.key()), dest);
+    }
     dest.setLastModified(meta.getLastModified().getTime());
 
     if (null != l) {
@@ -208,7 +232,12 @@ class S3URLHandler implements URLHandler {
     }
 
     ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(dest);
-    cbk.putObject(cbk.bucket(), cbk.key(), src);
+    try {
+      cbk.putObject(cbk.bucket(), cbk.key(), src);
+    } catch (AmazonS3Exception e) {
+      cbk = s3URLUtil.getNewClientBucketAndKey(dest);
+      cbk.putObject(cbk.bucket(), cbk.key(), src);
+    }
 
     if (null != l) {
       l.end(event);
