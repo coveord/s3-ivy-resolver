@@ -182,7 +182,8 @@ class S3URLUtil {
         new EnvironmentVariableCredentialsProvider(),
         new SystemPropertiesCredentialsProvider(),
         makePropertiesFileCredentialsProvider("." + credentialFileName),
-        new ProfileCredentialsProvider(), // #coveo change: check in .aws/credentials or .aws/config
+        new ProfileCredentialsProvider(bucket), // #coveo change: check in .aws/credentials or .aws/config,
+        new ProfileCredentialsProvider(),       // first using profile named after bucket, otherwise default profile
         new InstanceProfileCredentialsProvider()
     };
 
