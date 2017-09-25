@@ -13,6 +13,7 @@
  */
 package co.actioniq.ivy.s3;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -20,6 +21,8 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.Upload;
 import org.apache.ivy.util.CopyProgressEvent;
 import org.apache.ivy.util.CopyProgressListener;
 import org.apache.ivy.util.Message;
@@ -232,11 +235,20 @@ class S3URLHandler implements URLHandler {
     }
 
     ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(dest);
+    TransferManager tm = cbk.getTransferManager(cbk.bucket(), cbk.key());
     try {
-      cbk.putObject(cbk.bucket(), cbk.key(), src);
-    } catch (AmazonS3Exception e) {
-      cbk = s3URLUtil.getNewClientBucketAndKey(dest);
-      cbk.putObject(cbk.bucket(), cbk.key(), src);
+      try {
+        Upload upload = tm.upload(cbk.bucket(), cbk.key(), src);
+        upload.waitForUploadResult();
+      } catch (AmazonServiceException e) {
+        cbk = s3URLUtil.getNewClientBucketAndKey(dest);
+        Upload upload = tm.upload(cbk.bucket(), cbk.key(), src);
+        upload.waitForUploadResult();
+      }
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    } finally {
+      tm.shutdownNow();
     }
 
     if (null != l) {

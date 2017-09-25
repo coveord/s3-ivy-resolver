@@ -20,6 +20,8 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import org.apache.ivy.util.Message;
 
 import java.io.File;
@@ -59,6 +61,11 @@ class ClientBucketKey {
   PutObjectResult putObject(String bucketName, String key, File file) {
     log("AIQ S3 putObject bucketName: " + bucketName + ", key: " + key + ", file: " + file);
     return client.putObject(bucketName, key, file);
+  }
+
+  TransferManager getTransferManager(String bucketName, String key) {
+    log("AIQ S3 getTransferManager bucketName: " + bucketName + ", key: " + key);
+    return TransferManagerBuilder.standard().withS3Client(client).build();
   }
 
   private void log(String message) {
