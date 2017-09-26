@@ -109,7 +109,7 @@ class S3URLHandler implements URLHandler {
   }
 
   private static void info(String msg) {
-    Message.info(msg);
+    Message.info("S3URLHandler." + msg);
   }
 
   private static void debug(String msg) {
@@ -118,7 +118,7 @@ class S3URLHandler implements URLHandler {
 
   public URLInfo getURLInfo(URL url, int timeout) {
     try {
-      debug("getURLInfo(" + url + ", " + timeout + ")");
+      info("getURLInfo(" + url + ", " + timeout + ")");
 
       ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(url);
 
@@ -126,6 +126,9 @@ class S3URLHandler implements URLHandler {
       try {
         meta = cbk.getObjectMetadata(cbk.bucket(), cbk.key());
       } catch (AmazonS3Exception e) {
+        if (e.getStatusCode() == 404) {
+          return UNAVAILABLE;
+        }
         cbk = s3URLUtil.getNewClientBucketAndKey(url);
         meta = cbk.getObjectMetadata(cbk.bucket(), cbk.key());
       }
@@ -143,7 +146,7 @@ class S3URLHandler implements URLHandler {
   }
 
   public InputStream openStream(URL url) {
-    debug("openStream(" + url + ")");
+    info("openStream(" + url + ")");
 
     ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(url);
     S3Object obj;
@@ -160,7 +163,7 @@ class S3URLHandler implements URLHandler {
    * A directory listing for keys/directories under this prefix
    */
   List<URL> list(URL url) throws MalformedURLException {
-    debug("list(" + url + ")");
+    info("list(" + url + ")");
 
       /* key is the prefix in this case */
     ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(url);
@@ -203,7 +206,7 @@ class S3URLHandler implements URLHandler {
 
   @SuppressWarnings("RV_RETURN_VALUE_IGNORED_BAD_PRACTICE")
   public void download(URL src, File dest, CopyProgressListener l) {
-    debug("download(" + src + ", " + dest + ")");
+    info("download(" + src + ", " + dest + ")");
 
     ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(src);
 
@@ -227,7 +230,7 @@ class S3URLHandler implements URLHandler {
   }
 
   public void upload(File src, URL dest, CopyProgressListener l) {
-    debug("upload(" + src + ", " + dest + ")");
+    info("upload(" + src + ", " + dest + ")");
 
     CopyProgressEvent event = new CopyProgressEvent();
     if (null != l) {
@@ -258,6 +261,6 @@ class S3URLHandler implements URLHandler {
 
   // I don't think we care what this is set to
   public void setRequestMethod(int requestMethod) {
-    debug("setRequestMethod(" + requestMethod + ")");
+    info("setRequestMethod(" + requestMethod + ")");
   }
 }
