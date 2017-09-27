@@ -23,6 +23,7 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.util.IOUtils;
 import org.apache.ivy.util.CopyProgressEvent;
 import org.apache.ivy.util.CopyProgressListener;
 import org.apache.ivy.util.Message;
@@ -31,12 +32,18 @@ import org.apache.ivy.util.url.URLHandlerDispatcher;
 import org.apache.ivy.util.url.URLHandlerRegistry;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 class S3URLHandler implements URLHandler {
   // One time setup to register our handler for S3:// urls in Ivy
@@ -208,20 +215,34 @@ class S3URLHandler implements URLHandler {
   public void download(URL src, File dest, CopyProgressListener l) {
     info("download(" + src + ", " + dest + ")");
 
-    ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(src);
-
     CopyProgressEvent event = new CopyProgressEvent();
     if (null != l) {
       l.start(event);
     }
 
+    File actualDest = dest;
+    if (!src.getPath().endsWith("/ivy.xml")) {
+      try {
+        actualDest = File.createTempFile("S3URLHandler-", ".zip");
+        actualDest.deleteOnExit();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(src);
     ObjectMetadata meta;
     try {
-      meta = cbk.getObject(new GetObjectRequest(cbk.bucket(), cbk.key()), dest);
+      meta = cbk.getObject(new GetObjectRequest(cbk.bucket(), cbk.key()), actualDest);
     } catch (AmazonS3Exception e) {
       cbk = s3URLUtil.getNewClientBucketAndKey(src);
-      meta = cbk.getObject(new GetObjectRequest(cbk.bucket(), cbk.key()), dest);
+      meta = cbk.getObject(new GetObjectRequest(cbk.bucket(), cbk.key()), actualDest);
     }
+
+    if (actualDest != dest) {
+      uncompressFile(actualDest, dest);
+    }
+
     dest.setLastModified(meta.getLastModified().getTime());
 
     if (null != l) {
@@ -235,6 +256,10 @@ class S3URLHandler implements URLHandler {
     CopyProgressEvent event = new CopyProgressEvent();
     if (null != l) {
       l.start(event);
+    }
+
+    if (!src.getName().equals("ivy.xml")) {
+      src = compressFile(src);
     }
 
     ClientBucketKey cbk = s3URLUtil.getClientBucketAndKey(dest);
@@ -256,6 +281,49 @@ class S3URLHandler implements URLHandler {
 
     if (null != l) {
       l.end(event);
+    }
+  }
+
+  private File compressFile(File src) {
+    File zippedSrc;
+
+    try {
+      zippedSrc = File.createTempFile("S3URLHandler-", ".zip");
+      zippedSrc.deleteOnExit();
+
+      try (ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(zippedSrc))) {
+        ZipEntry zipEntry = new ZipEntry(src.getName());
+        zipOut.putNextEntry(zipEntry);
+
+        try (FileInputStream srcIn = new FileInputStream(src)) {
+          IOUtils.copy(srcIn, zipOut);
+        }
+
+        zipOut.closeEntry();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    return zippedSrc;
+  }
+
+  private void uncompressFile(File zippedDest, File dest) {
+    try {
+      try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zippedDest))) {
+        ZipEntry zipEntry = zipIn.getNextEntry();
+        if (zipEntry == null) {
+          throw new RuntimeException("Zip file is empty: " + zippedDest.getAbsolutePath());
+        }
+
+        try (FileOutputStream destOut = new FileOutputStream(dest)) {
+          IOUtils.copy(zipIn, destOut);
+        }
+
+        zipIn.closeEntry();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
