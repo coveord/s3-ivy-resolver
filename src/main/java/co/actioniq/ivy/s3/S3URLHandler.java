@@ -258,7 +258,7 @@ class S3URLHandler implements URLHandler {
       l.start(event);
     }
 
-    if (!src.getName().equals("ivy.xml")) {
+    if (!src.getName().equals("ivy.xml") && !src.getName().equals("ivy.linux.xml")) {
       src = compressFile(src);
     }
 
